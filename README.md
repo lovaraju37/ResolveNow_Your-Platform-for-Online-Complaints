@@ -1,1 +1,1 @@
-# LTIP-Full-Stack-Developer
+# ResolveNow: Your Platform for Online Complaints
