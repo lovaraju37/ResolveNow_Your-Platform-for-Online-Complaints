@@ -1,17 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 const User = require('../models/User');
+const Assigned = require('../models/Assigned');
+const config = require('../config');
 
-// Register
+// Register User
 router.post('/register', async (req, res) => {
     try {
         const { name, email, password, phone, userType } = req.body;
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ name, email, password: hashedPassword, phone, userType });
         await newUser.save();
-        res.status(201).json({ message: 'User registered successfully' });
+
+        const token = jwt.sign({ id: newUser._id, userType: newUser.userType }, 'SECRET_KEY', { expiresIn: '1h' });
+        res.status(201).json({ 
+            message: 'User registered successfully',
+            token,
+            user: { id: newUser._id, name: newUser.name, userType: newUser.userType }
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -37,6 +45,24 @@ router.post('/login', async (req, res) => {
 // Logout
 router.post('/logout', (req, res) => {
     res.json({ message: 'Logout successful' });
+});
+
+// Get all agents with active assignment counts
+router.get('/agents', async (req, res) => {
+    try {
+        const agents = await User.find({ userType: 'Agent' }).select('-password');
+        
+        const agentsWithCounts = await Promise.all(agents.map(async (agent) => {
+            const assignments = await Assigned.find({ agentId: agent._id }).populate('complaintId');
+            // Active assignment: Complaint exists and is not Resolved
+            const activeCount = assignments.filter(a => a.complaintId && a.complaintId.status !== 'Resolved').length;
+            return { ...agent.toObject(), activeAssignments: activeCount };
+        }));
+        
+        res.json(agentsWithCounts);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 module.exports = router;

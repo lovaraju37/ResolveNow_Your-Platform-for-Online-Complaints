@@ -2,11 +2,43 @@ const express = require('express');
 const router = express.Router();
 const Complaint = require('../models/Complaint');
 const auth = require('../middleware/authMiddleware');
+const multer = require('multer');
+const path = require('path');
+
+// Multer Config
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|jpg|png|pdf|doc|docx/;
+        const mimetype = filetypes.test(file.mimetype);
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+
+        if (mimetype && extname) {
+            return cb(null, true);
+        }
+        cb(new Error('Only images and documents are allowed!'));
+    }
+});
 
 // Create Complaint
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, upload.single('attachment'), async (req, res) => {
     try {
-        const newComplaint = new Complaint(req.body);
+        const complaintData = req.body;
+        if (req.file) {
+            complaintData.attachment = req.file.path;
+        }
+
+        const newComplaint = new Complaint(complaintData);
         const savedComplaint = await newComplaint.save();
         
         // Emit event
@@ -22,7 +54,7 @@ router.post('/', auth, async (req, res) => {
 // Get All Complaints
 router.get('/', auth, async (req, res) => {
     try {
-        const complaints = await Complaint.find();
+        const complaints = await Complaint.find().populate('userId', 'name email');
         res.json(complaints);
     } catch (err) {
         res.status(500).json({ error: err.message });

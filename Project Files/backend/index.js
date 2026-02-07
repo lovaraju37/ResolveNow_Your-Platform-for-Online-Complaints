@@ -9,8 +9,11 @@ const authRoutes = require('./routes/auth');
 const complaintRoutes = require('./routes/complaints');
 const assignedRoutes = require('./routes/assigned');
 const messageRoutes = require('./routes/messages');
+const feedbackRoutes = require('./routes/feedback');
 const userRoutes = require('./routes/users');
 const errorHandler = require('./middleware/errorMiddleware');
+
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -28,12 +31,14 @@ app.set('io', io);
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/assigned', assignedRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/feedback', feedbackRoutes);
 app.use('/api/users', userRoutes);
 
 // Database Connection

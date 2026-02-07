@@ -7,7 +7,7 @@ const Home = ({ onNavigate }) => {
       {/* Navigation Bar */}
       <nav className="navbar">
         <div className="navbar-container">
-          <div className="navbar-brand">ComplaintCare</div>
+          <div className="navbar-brand">ResolveNow</div>
           <div className="navbar-links">
             <a href="#home" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('home'); }}>Home</a>
             <a href="#signup" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('signup'); }}>SignUp</a>

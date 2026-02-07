@@ -42,13 +42,29 @@ const SignUp = ({ onNavigate }) => {
     setLoading(true);
 
     try {
-      const { confirmPassword, ...dataToSend } = formData;
+      const { confirmPassword: _confirmPassword, ...dataToSend } = formData;
       const response = await axios.post('http://localhost:5000/api/auth/register', dataToSend);
+      const { token, user } = response.data;
+
+      if (!token || !user) {
+        throw new Error('Registration successful but automatic login failed. Please login manually.');
+      }
+
+      // Store token and user info
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
       
-      setSuccess('Registration successful! Redirecting to login...');
+      setSuccess('Registration successful! Redirecting...');
       setTimeout(() => {
-        onNavigate('login');
-      }, 2000);
+        // Navigate based on user type
+        if (user.userType === 'Customer') {
+          onNavigate('customer-home');
+        } else if (user.userType === 'Agent') {
+          onNavigate('agent-home');
+        } else if (user.userType === 'Admin') {
+          onNavigate('admin-home');
+        }
+      }, 1000);
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.');
     } finally {
@@ -60,7 +76,7 @@ const SignUp = ({ onNavigate }) => {
     <div className="auth-container">
       <nav className="auth-navbar">
         <div className="navbar-container">
-          <div className="navbar-brand" onClick={() => onNavigate('home')}>ComplaintCare</div>
+          <div className="navbar-brand" onClick={() => onNavigate('home')}>ResolveNow</div>
           <div className="navbar-links">
             <a href="#home" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('home'); }}>Home</a>
             <a href="#signup" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('signup'); }}>SignUp</a>
