@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Snackbar, Alert, Rating } from '@mui/material';
 
-const UserInfo = () => {
+const UserInfo = ({ onAssignmentChange }) => {
     const [complaints, setComplaints] = useState([]);
     const [agents, setAgents] = useState([]);
     const [assignments, setAssignments] = useState([]);
@@ -124,6 +124,9 @@ const UserInfo = () => {
 
             setAssigningComplaintId(null);
             setRefreshKey(prev => prev + 1); // Refresh to ensure data consistency with backend
+            if (onAssignmentChange) {
+                onAssignmentChange();
+            }
         } catch (err) {
             console.error(err);
             setSnackbar({
@@ -240,17 +243,34 @@ const UserInfo = () => {
                             <div><strong>State:</strong> {complaint.state}</div>
                             <div><strong>Pincode:</strong> {complaint.pincode}</div>
                             <div><strong>Comment:</strong> {complaint.comment}</div>
-                            {complaint.attachment && (
+                            {(complaint.attachments?.length > 0 || complaint.attachment) && (
                                 <div style={{ marginTop: '0.5rem' }}>
-                                    <strong>Attachment:</strong>{' '}
-                                    <a 
-                                        href={`http://localhost:5000/${complaint.attachment.replace(/\\/g, '/')}`} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        style={{ color: '#3498db', textDecoration: 'none' }}
-                                    >
-                                        View Document
-                                    </a>
+                                    <strong>Attachments:</strong>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.3rem' }}>
+                                        {/* Legacy Support */}
+                                        {complaint.attachment && (!complaint.attachments || complaint.attachments.length === 0) && (
+                                            <a 
+                                                href={`http://localhost:5000/${complaint.attachment.replace(/\\/g, '/')}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                style={{ color: '#3498db', textDecoration: 'none' }}
+                                            >
+                                                View Document
+                                            </a>
+                                        )}
+                                        {/* New Array Support */}
+                                        {complaint.attachments?.map((att, idx) => (
+                                            <a 
+                                                key={idx}
+                                                href={`http://localhost:5000/${att.path.replace(/\\/g, '/')}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                style={{ color: '#3498db', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                            >
+                                                <span>📄 {att.name || att.originalName || 'Document'}</span>
+                                            </a>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                             
@@ -293,7 +313,7 @@ const UserInfo = () => {
                                 disabled={isFull}
                                 style={{ color: isFull ? '#aaa' : 'inherit' }}
                             >
-                                {agent.name} ({count}/3) {isFull ? '- Full' : ''}
+                                {agent.name} ({count}/3) {isFull ? '- Unavailable' : ''}
                             </option>
                         );
                     })}

@@ -1,13 +1,42 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
 const Message = require('../models/Message');
 const auth = require('../middleware/authMiddleware');
 
+// Multer Config
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/');
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+
+const upload = multer({ storage: storage });
+
 // Send Message
-router.post('/', async (req, res) => {
+router.post('/', upload.array('attachments', 5), async (req, res) => {
     try {
         const { complaintId, name, message } = req.body;
-        const newMessage = new Message({ complaintId, name, message });
+        
+        const newMessageData = {
+            complaintId,
+            name,
+            message
+        };
+
+        if (req.files && req.files.length > 0) {
+            newMessageData.attachments = req.files.map(file => ({
+                path: file.path,
+                originalName: file.originalname,
+                name: file.originalname // Default to original name
+            }));
+        }
+
+        const newMessage = new Message(newMessageData);
         const savedMessage = await newMessage.save();
 
         // Emit socket event

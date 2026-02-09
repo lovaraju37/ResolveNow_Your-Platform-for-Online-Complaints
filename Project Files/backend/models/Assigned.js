@@ -6,6 +6,6 @@ const AssignedSchema = new mongoose.Schema({
     agentName: { type: String, required: true },
     status: { type: String, default: 'Assigned' },
     assignedAt: { type: Date, default: Date.now }
-}, { collection: 'assigned_complaint' });
+});
 
 module.exports = mongoose.model('Assigned', AssignedSchema);

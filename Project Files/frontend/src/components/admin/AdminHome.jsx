@@ -12,6 +12,11 @@ const AdminHome = ({ onNavigate }) => {
         return storedUser ? JSON.parse(storedUser) : null;
     });
     const [view, setView] = useState('dashboard'); // 'dashboard', 'profile'
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+    const handleAssignmentChange = () => {
+        setRefreshTrigger(prev => prev + 1);
+    };
 
     const handleUserUpdate = (updatedUser) => {
         setUser(updatedUser);
@@ -42,11 +47,11 @@ const AdminHome = ({ onNavigate }) => {
                 {view === 'dashboard' ? (
                     <>
                         <AccordionAdmin title="Users Complaints" defaultOpen={true}>
-                            <UserInfo />
+                            <UserInfo onAssignmentChange={handleAssignmentChange} />
                         </AccordionAdmin>
 
                         <AccordionAdmin title="Agents" defaultOpen={true}>
-                            <AgentInfo />
+                            <AgentInfo refreshTrigger={refreshTrigger} />
                         </AccordionAdmin>
                     </>
                 ) : (

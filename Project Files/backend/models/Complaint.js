@@ -8,9 +8,13 @@ const ComplaintSchema = new mongoose.Schema({
     state: { type: String, required: true },
     pincode: { type: String, required: true },
     comment: { type: String, required: true },
-    attachment: { type: String }, // Path to the uploaded file
+    attachments: [{
+        path: { type: String, required: true },
+        name: { type: String },
+        originalName: { type: String }
+    }],
     status: { type: String, default: 'Pending' },
     createdAt: { type: Date, default: Date.now }
-}, { collection: 'complaint_schema' });
+});
 
 module.exports = mongoose.model('Complaint', ComplaintSchema);

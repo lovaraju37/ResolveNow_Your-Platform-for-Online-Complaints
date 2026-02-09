@@ -3,9 +3,9 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import { 
     Dialog, DialogTitle, DialogContent, DialogActions, 
-    TextField, Button, Rating, Snackbar, Alert, Typography, Badge, Fab
+    TextField, Button, Rating, Snackbar, Alert, Typography, Badge, Fab, IconButton
 } from '@mui/material';
-import { KeyboardArrowDown } from '@mui/icons-material';
+import { KeyboardArrowDown, AttachFile, Close } from '@mui/icons-material';
 import '../common/Auth.css';
 
 const Status = ({ user, targetComplaintId, onNavigate }) => {
@@ -13,10 +13,11 @@ const Status = ({ user, targetComplaintId, onNavigate }) => {
   const [feedbacks, setFeedbacks] = useState({}); // { complaintId: feedback }
   const [loading, setLoading] = useState(true);
   const [feedbackDialog, setFeedbackDialog] = useState({ open: false, complaintId: null, rating: 0, comment: '' });
-  const [messageDialog, setMessageDialog] = useState({ open: false, complaintId: null, text: '', messages: [] });
+  const [messageDialog, setMessageDialog] = useState({ open: false, complaintId: null, text: '', messages: [], attachments: [] });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [unreadCounts, setUnreadCounts] = useState({});
   const chatContainerRef = React.useRef(null);
+  const complaintRefs = React.useRef({});
   const [showScrollButton, setShowScrollButton] = useState(false);
 
   const scrollToBottom = (behavior = 'auto') => {
@@ -81,12 +82,27 @@ const Status = ({ user, targetComplaintId, onNavigate }) => {
     return () => socket.disconnect();
   }, [user, complaints, messageDialog.open, messageDialog.complaintId]);
 
-  // Open chat if targetComplaintId is provided
+  // Scroll to target complaint instead of auto-opening chat
   useEffect(() => {
-    if (targetComplaintId) {
-        setMessageDialog({ open: true, complaintId: targetComplaintId, text: '', messages: [] });
+    if (targetComplaintId && !loading && complaints.length > 0) {
+        const element = complaintRefs.current[targetComplaintId];
+        if (element) {
+            // Small delay to ensure rendering
+            setTimeout(() => {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Highlight effect
+                element.style.transition = 'all 0.5s ease';
+                element.style.boxShadow = '0 0 0 2px #3498db, 0 4px 12px rgba(52, 152, 219, 0.3)';
+                element.style.transform = 'scale(1.02)';
+                
+                setTimeout(() => {
+                    element.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
+                    element.style.transform = 'scale(1)';
+                }, 2000);
+            }, 100);
+        }
     }
-  }, [targetComplaintId]);
+  }, [targetComplaintId, loading, complaints]);
 
   // Fetch messages when dialog opens
   useEffect(() => {
@@ -114,20 +130,43 @@ const Status = ({ user, targetComplaintId, onNavigate }) => {
     }
   }, [messageDialog.open, messageDialog.complaintId]);
 
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    setMessageDialog(prev => ({
+        ...prev,
+        attachments: [...prev.attachments, ...files]
+    }));
+  };
+
+  const handleRemoveAttachment = (index) => {
+    setMessageDialog(prev => ({
+        ...prev,
+        attachments: prev.attachments.filter((_, i) => i !== index)
+    }));
+  };
+
   const handleSendMessage = async () => {
-    if (!messageDialog.text.trim()) return;
+    if (!messageDialog.text.trim() && messageDialog.attachments.length === 0) return;
 
     try {
-        const response = await axios.post('http://localhost:5000/api/messages', {
-            complaintId: messageDialog.complaintId,
-            name: user.name,
-            message: messageDialog.text
+        const formData = new FormData();
+        formData.append('complaintId', messageDialog.complaintId);
+        formData.append('name', user.name);
+        formData.append('message', messageDialog.text || ' '); // Send space if only attachment
+        
+        messageDialog.attachments.forEach(file => {
+            formData.append('attachments', file);
+        });
+
+        const response = await axios.post('http://localhost:5000/api/messages', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
         });
 
         // Update local state
         setMessageDialog(prev => ({ 
             ...prev, 
             text: '',
+            attachments: [],
             messages: [...prev.messages, response.data]
         }));
     } catch (err) {
@@ -236,7 +275,10 @@ const Status = ({ user, targetComplaintId, onNavigate }) => {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'stretch' }}>
       {complaints.map(complaint => (
-        <div key={complaint._id} style={{ 
+        <div 
+            key={complaint._id} 
+            ref={el => complaintRefs.current[complaint._id] = el}
+            style={{ 
             backgroundColor: 'white', 
             padding: '1rem', 
             borderRadius: '8px', 
@@ -277,17 +319,35 @@ const Status = ({ user, targetComplaintId, onNavigate }) => {
             <div><strong>Date:</strong> {new Date(complaint.createdAt).toLocaleDateString()}</div>
             <div><strong>City:</strong> {complaint.city}</div>
             <div><strong>Description:</strong> {complaint.comment}</div>
-            {complaint.attachment && (
+            
+            {(complaint.attachments?.length > 0 || complaint.attachment) && (
                 <div style={{ marginTop: '0.5rem' }}>
-                    <strong>Attachment:</strong>{' '}
-                    <a 
-                        href={`http://localhost:5000/${complaint.attachment.replace(/\\/g, '/')}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        style={{ color: '#3498db', textDecoration: 'none' }}
-                    >
-                        View Document
-                    </a>
+                    <strong>Attachments:</strong>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.3rem' }}>
+                        {/* Legacy Support */}
+                        {complaint.attachment && (!complaint.attachments || complaint.attachments.length === 0) && (
+                            <a 
+                                href={`http://localhost:5000/${complaint.attachment.replace(/\\/g, '/')}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ color: '#3498db', textDecoration: 'none' }}
+                            >
+                                View Document
+                            </a>
+                        )}
+                        {/* New Array Support */}
+                        {complaint.attachments?.map((att, idx) => (
+                            <a 
+                                key={idx}
+                                href={`http://localhost:5000/${att.path.replace(/\\/g, '/')}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ color: '#3498db', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                            >
+                                <span>📄 {att.name || att.originalName || 'Document'}</span>
+                            </a>
+                        ))}
+                    </div>
                 </div>
             )}
             
@@ -300,8 +360,8 @@ const Status = ({ user, targetComplaintId, onNavigate }) => {
                             color="primary" 
                             size="small" 
                             fullWidth 
-                            onClick={() => setMessageDialog({ open: true, complaintId: complaint._id, text: '', messages: [] })}
-                            style={{ marginBottom: '0.5rem' }}
+                            onClick={() => setMessageDialog({ open: true, complaintId: complaint._id, text: '', messages: [], attachments: [] })}
+                            style={{ marginBottom: '0' }}
                         >
                             Chat with Agent
                         </Button>
@@ -315,7 +375,9 @@ const Status = ({ user, targetComplaintId, onNavigate }) => {
                         <div style={{ fontSize: '0.9rem', color: '#27ae60' }}>
                             <strong>Feedback Given:</strong>
                             <div>Rating: <Rating value={feedbacks[complaint._id].rating} readOnly size="small" /></div>
-                            <div>"{feedbacks[complaint._id].comment}"</div>
+                            {feedbacks[complaint._id].comment && feedbacks[complaint._id].comment.trim() && (
+                                <div>"{feedbacks[complaint._id].comment}"</div>
+                            )}
                         </div>
                     ) : (
                         <Button 
@@ -381,7 +443,54 @@ const Status = ({ user, targetComplaintId, onNavigate }) => {
                                     <div style={{ fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.2rem', color: isMe ? '#e3f2fd' : '#7f8c8d' }}>
                                         {msg.name}
                                     </div>
-                                    <div style={{ fontSize: '0.9rem' }}>{msg.message}</div>
+                                    <div style={{ fontSize: '0.9rem' }}>
+                                        {msg.message}
+                                        {msg.attachments && msg.attachments.length > 0 && (
+                                            <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                {msg.attachments.map((att, idx) => {
+                                                    const fileUrl = `http://localhost:5000/${att.path.replace(/\\/g, '/')}`;
+                                                    const isImage = att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                                                    
+                                                    return isImage ? (
+                                                        <a 
+                                                            key={idx} 
+                                                            href={fileUrl} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer"
+                                                            style={{ display: 'block' }}
+                                                        >
+                                                            <img 
+                                                                src={fileUrl} 
+                                                                alt={att.name} 
+                                                                style={{ 
+                                                                    maxWidth: '200px', 
+                                                                    maxHeight: '200px', 
+                                                                    borderRadius: '8px', 
+                                                                    objectFit: 'cover',
+                                                                    border: '1px solid rgba(0,0,0,0.1)'
+                                                                }} 
+                                                            />
+                                                        </a>
+                                                    ) : (
+                                                        <a 
+                                                            key={idx} 
+                                                            href={fileUrl} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer"
+                                                            style={{ 
+                                                                color: isMe ? 'white' : '#3498db', 
+                                                                textDecoration: 'underline', 
+                                                                fontSize: '0.85rem',
+                                                                display: 'block' 
+                                                            }}
+                                                        >
+                                                            {att.name || 'Attachment'}
+                                                        </a>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
                                     <div style={{ fontSize: '0.7rem', textAlign: 'right', marginTop: '0.2rem', opacity: 0.8 }}>
                                         {new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </div>
@@ -407,23 +516,61 @@ const Status = ({ user, targetComplaintId, onNavigate }) => {
                     </Fab>
                 )}
             </div>
-            <TextField
-                autoFocus
-                margin="dense"
-                label="Type a message..."
-                type="text"
-                fullWidth
-                multiline
-                rows={2}
-                value={messageDialog.text}
-                onChange={(e) => setMessageDialog({ ...messageDialog, text: e.target.value })}
-                onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                    }
-                }}
-            />
+            
+            {/* File Previews */}
+            {messageDialog.attachments && messageDialog.attachments.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    {messageDialog.attachments.map((file, idx) => (
+                        <div key={idx} style={{ 
+                            backgroundColor: '#f0f0f0', 
+                            padding: '0.2rem 0.5rem', 
+                            borderRadius: '4px', 
+                            fontSize: '0.8rem', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '0.3rem' 
+                        }}>
+                            <span>{file.name}</span>
+                            <Close 
+                                style={{ fontSize: '1rem', cursor: 'pointer', color: '#e74c3c' }} 
+                                onClick={() => handleRemoveAttachment(idx)} 
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
+            
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+                <input
+                    type="file"
+                    multiple
+                    id="chat-file-input"
+                    style={{ display: 'none' }}
+                    onChange={handleFileSelect}
+                />
+                <label htmlFor="chat-file-input">
+                    <IconButton component="span" color="primary" size="small">
+                        <AttachFile />
+                    </IconButton>
+                </label>
+                <TextField
+                    autoFocus
+                    margin="dense"
+                    label="Type a message..."
+                    type="text"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    value={messageDialog.text}
+                    onChange={(e) => setMessageDialog({ ...messageDialog, text: e.target.value })}
+                    onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                        }
+                    }}
+                />
+            </div>
         </DialogContent>
         <DialogActions>
             <Button onClick={() => setMessageDialog({ ...messageDialog, open: false })}>Close</Button>

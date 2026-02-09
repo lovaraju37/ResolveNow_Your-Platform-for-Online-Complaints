@@ -7,6 +7,6 @@ const UserSchema = new mongoose.Schema({
     phone: { type: String, required: true },
     userType: { type: String, enum: ['Customer', 'Agent', 'Admin'], default: 'Customer' },
     createdAt: { type: Date, default: Date.now }
-}, { collection: 'user_Schema' });
+});
 
 module.exports = mongoose.model('User', UserSchema);

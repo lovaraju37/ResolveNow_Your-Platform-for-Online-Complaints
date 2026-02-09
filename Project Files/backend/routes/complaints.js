@@ -31,11 +31,23 @@ const upload = multer({
 });
 
 // Create Complaint
-router.post('/', auth, upload.single('attachment'), async (req, res) => {
+router.post('/', auth, upload.array('attachments', 10), async (req, res) => {
     try {
         const complaintData = req.body;
-        if (req.file) {
-            complaintData.attachment = req.file.path;
+        
+        // Process attachments
+        if (req.files && req.files.length > 0) {
+            const attachmentNames = req.body.attachmentNames || [];
+            // Ensure attachmentNames is an array even if single string
+            const namesList = Array.isArray(attachmentNames) ? attachmentNames : [attachmentNames];
+            
+            complaintData.attachments = req.files.map((file, index) => ({
+                path: file.path,
+                originalName: file.originalname,
+                name: namesList[index] || file.originalname // Use provided name or fallback to original
+            }));
+        } else {
+            complaintData.attachments = [];
         }
 
         const newComplaint = new Complaint(complaintData);

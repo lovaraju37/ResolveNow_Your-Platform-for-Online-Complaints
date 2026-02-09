@@ -86,14 +86,14 @@ const SignUp = ({ onNavigate }) => {
       </nav>
 
       <div className="auth-content">
-        <div className="auth-card">
+        <div className="auth-card signup-card">
           <h2 className="auth-title">SignUp For Registering the Complaint</h2>
           <p className="auth-subtitle">Please enter your details</p>
           
           {error && <div className="error-message">{error}</div>}
           {success && <div className="success-message">{success}</div>}
           
-          <form onSubmit={handleSubmit} className="auth-form">
+          <form onSubmit={handleSubmit} className="auth-form signup-form">
             <div className="form-group">
               <label htmlFor="name">Name</label>
               <input

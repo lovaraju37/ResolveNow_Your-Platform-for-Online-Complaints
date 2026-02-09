@@ -10,17 +10,45 @@ const Complaint = ({ user, onSuccess }) => {
     state: '',
     pincode: '',
     comment: '',
-    attachment: null
+    attachments: [] 
   });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   const handleChange = (e) => {
-    if (e.target.name === 'attachment') {
-        setFormData({ ...formData, attachment: e.target.files[0] });
-    } else {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    }
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleAddAttachment = () => {
+    setFormData({
+        ...formData,
+        attachments: [...formData.attachments, { file: null, name: '', id: Date.now() }]
+    });
+  };
+
+  const handleRemoveAttachment = (id) => {
+      setFormData({
+          ...formData,
+          attachments: formData.attachments.filter(att => att.id !== id)
+      });
+  };
+
+  const handleAttachmentFileChange = (id, file) => {
+      setFormData({
+          ...formData,
+          attachments: formData.attachments.map(att => 
+              att.id === id ? { ...att, file: file } : att
+          )
+      });
+  };
+
+  const handleAttachmentNameChange = (id, name) => {
+      setFormData({
+          ...formData,
+          attachments: formData.attachments.map(att => 
+              att.id === id ? { ...att, name: name } : att
+          )
+      });
   };
 
   const handleSubmit = async (e) => {
@@ -38,8 +66,14 @@ const Complaint = ({ user, onSuccess }) => {
       data.append('comment', formData.comment);
       data.append('userId', user.id);
       data.append('status', 'Pending');
-      if (formData.attachment) {
-          data.append('attachment', formData.attachment);
+      
+      if (formData.attachments && formData.attachments.length > 0) {
+          formData.attachments.forEach(att => {
+              if (att.file) {
+                  data.append('attachments', att.file);
+                  data.append('attachmentNames', att.name || att.file.name);
+              }
+          });
       }
 
       await axios.post('http://localhost:5000/api/complaints', 
@@ -60,7 +94,7 @@ const Complaint = ({ user, onSuccess }) => {
         state: '', 
         pincode: '', 
         comment: '',
-        attachment: null
+        attachments: []
       });
 
       // Redirect to status tab after a short delay
@@ -195,28 +229,6 @@ const Complaint = ({ user, onSuccess }) => {
                 }}
              />
            </div>
-            <div className="form-group">
-             <label style={labelStyle}>Status</label>
-             <div style={{
-                 ...inputStyle,
-                 backgroundColor: '#f1f2f6', 
-                 color: '#7f8c8d',
-                 cursor: 'not-allowed',
-                 display: 'flex',
-                 alignItems: 'center',
-                 fontWeight: '500'
-             }}>
-                 <span style={{
-                     display: 'inline-block',
-                     width: '8px',
-                     height: '8px',
-                     borderRadius: '50%',
-                     backgroundColor: '#f1c40f',
-                     marginRight: '8px'
-                 }}></span>
-                 Pending
-             </div>
-           </div>
          </div>
          
          <div className="form-group" style={{marginTop: '2rem'}}>
@@ -245,20 +257,65 @@ const Complaint = ({ user, onSuccess }) => {
          </div>
 
          <div className="form-group" style={{marginTop: '1.5rem'}}>
-            <label style={labelStyle}>Attach Document/Image (Optional)</label>
-            <input 
-                type="file"
-                name="attachment"
-                onChange={handleChange}
-                accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+            <label style={labelStyle}>Attachments (Optional)</label>
+            
+            {formData.attachments.map((att) => (
+                <div key={att.id} style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                        <input 
+                            type="text"
+                            placeholder="Document Name (e.g. Invoice, Photo)"
+                            value={att.name}
+                            onChange={(e) => handleAttachmentNameChange(att.id, e.target.value)}
+                            style={{ ...inputStyle, marginBottom: '0.5rem' }}
+                        />
+                        <input 
+                            type="file"
+                            onChange={(e) => handleAttachmentFileChange(att.id, e.target.files[0])}
+                            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                            style={{
+                                ...inputStyle,
+                                padding: '0.4rem',
+                                cursor: 'pointer'
+                            }}
+                        />
+                    </div>
+                    <button 
+                        type="button"
+                        onClick={() => handleRemoveAttachment(att.id)}
+                        style={{
+                            padding: '0.6rem 1rem',
+                            backgroundColor: '#e74c3c',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            marginTop: '2px'
+                        }}
+                    >
+                        Remove
+                    </button>
+                </div>
+            ))}
+
+            <button 
+                type="button"
+                onClick={handleAddAttachment}
                 style={{
-                    ...inputStyle,
-                    padding: '0.4rem',
-                    cursor: 'pointer'
+                    padding: '0.6rem 1.2rem',
+                    backgroundColor: '#95a5a6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem'
                 }}
-            />
-            <small style={{ color: '#7f8c8d', fontSize: '0.8rem', marginTop: '0.3rem', display: 'block' }}>
-                Supported formats: JPG, PNG, PDF, DOC. Max size: 5MB.
+            >
+                + Add Attachment
+            </button>
+            
+            <small style={{ color: '#7f8c8d', fontSize: '0.8rem', marginTop: '0.8rem', display: 'block' }}>
+                Supported formats: JPG, PNG, PDF, DOC. Max size: 5MB per file.
             </small>
          </div>
          

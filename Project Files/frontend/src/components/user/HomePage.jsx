@@ -17,6 +17,7 @@ const HomePage = ({ onNavigate }) => {
   const [notifications, setNotifications] = useState([]);
   const [targetComplaintId, setTargetComplaintId] = useState(null);
   const [userComplaintIds, setUserComplaintIds] = useState(new Set());
+  const [userComplaints, setUserComplaints] = useState([]);
 
   // Fetch user complaints to know which IDs to listen for
   useEffect(() => {
@@ -27,10 +28,13 @@ const HomePage = ({ onNavigate }) => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             // Filter for current user
-            const ids = new Set(response.data
+            const filtered = response.data
                 .filter(c => c.userId === user.id || c.userId._id === user.id)
-                .map(c => c._id));
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            
+            const ids = new Set(filtered.map(c => c._id));
             setUserComplaintIds(ids);
+            setUserComplaints(filtered);
         } catch (err) {
             console.error(err);
             // Auto-logout on auth error
@@ -204,6 +208,69 @@ const HomePage = ({ onNavigate }) => {
                                     ))}
                                 </div>
                             )}
+
+                            {/* Recent Complaints */}
+                            <div style={{ marginTop: '3rem', textAlign: 'left', borderTop: '1px solid #eee', paddingTop: '2rem' }}>
+                                <h3 style={{ color: '#2c3e50', marginBottom: '1.5rem', fontSize: '1.2rem' }}>Recent Complaints</h3>
+                                {userComplaints.length === 0 ? (
+                                    <div style={{ color: '#7f8c8d', fontStyle: 'italic', textAlign: 'center' }}>No complaints found.</div>
+                                ) : (
+                                    <div style={{ display: 'grid', gap: '1rem' }}>
+                                        {userComplaints.slice(0, 3).map(complaint => (
+                                            <div key={complaint._id} 
+                                                style={{ 
+                                                    padding: '1rem', 
+                                                    backgroundColor: '#fff', 
+                                                    borderRadius: '8px', 
+                                                    border: '1px solid #eee', 
+                                                    display: 'flex', 
+                                                    justifyContent: 'space-between', 
+                                                    alignItems: 'center',
+                                                    boxShadow: '0 2px 5px rgba(0,0,0,0.02)',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onClick={() => {
+                                                    setTargetComplaintId(complaint._id);
+                                                    setActiveTab('status');
+                                                }}
+                                                onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                                onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                                            >
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', fontSize: '1.05rem', color: '#2c3e50' }}>{complaint.name}</div>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.2rem' }}>
+                                                        <span style={{ color: '#7f8c8d', fontSize: '0.85rem' }}>{new Date(complaint.createdAt).toLocaleDateString()}</span>
+                                                        <span style={{ color: '#bdc3c7' }}>•</span>
+                                                        <span style={{ color: '#555', fontSize: '0.85rem', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {complaint.comment}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div style={{ 
+                                                    padding: '0.3rem 0.8rem', 
+                                                    borderRadius: '20px', 
+                                                    fontSize: '0.8rem', 
+                                                    fontWeight: '600',
+                                                    backgroundColor: complaint.status === 'Resolved' ? '#e8f8f5' : complaint.status === 'In Progress' ? '#fef9e7' : '#fdedec',
+                                                    color: complaint.status === 'Resolved' ? '#27ae60' : complaint.status === 'In Progress' ? '#f39c12' : '#e74c3c',
+                                                    border: `1px solid ${complaint.status === 'Resolved' ? '#a9dfbf' : complaint.status === 'In Progress' ? '#f9e79f' : '#fadbd8'}`
+                                                }}>
+                                                    {complaint.status}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {userComplaints.length > 3 && (
+                                            <div 
+                                                style={{ textAlign: 'center', marginTop: '1rem', color: '#3498db', cursor: 'pointer', fontWeight: '500' }}
+                                                onClick={() => setActiveTab('status')}
+                                            >
+                                                View All Complaints →
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     ) : (
                         <div>

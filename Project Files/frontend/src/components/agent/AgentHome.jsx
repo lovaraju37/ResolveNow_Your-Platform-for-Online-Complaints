@@ -3,9 +3,9 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import { 
     Dialog, DialogTitle, DialogContent, DialogActions, 
-    TextField, Button, Select, MenuItem, Snackbar, Alert, Rating, Badge, Fab
+    TextField, Button, Select, MenuItem, Snackbar, Alert, Rating, Badge, Fab, IconButton
 } from '@mui/material';
-import { KeyboardArrowDown } from '@mui/icons-material';
+import { KeyboardArrowDown, AttachFile, Close } from '@mui/icons-material';
 import AccordionAdmin from '../admin/AccordionAdmin';
 import Profile from '../common/Profile';
 import UserDropdown from '../common/UserDropdown';
@@ -23,7 +23,7 @@ const AgentHome = ({ onNavigate }) => {
     
     // New States for Status and Message
     const [statusUpdates, setStatusUpdates] = useState({}); // { complaintId: 'NewStatus' }
-    const [messageDialog, setMessageDialog] = useState({ open: false, complaintId: null, text: '', messages: [] });
+    const [messageDialog, setMessageDialog] = useState({ open: false, complaintId: null, text: '', messages: [], attachments: [] });
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [feedbacks, setFeedbacks] = useState({});
     const [activeTab, setActiveTab] = useState('assigned'); // 'assigned', 'in_progress', 'resolved'
@@ -227,20 +227,43 @@ const AgentHome = ({ onNavigate }) => {
         }
     };
 
+    const handleFileSelect = (e) => {
+        const files = Array.from(e.target.files);
+        setMessageDialog(prev => ({
+            ...prev,
+            attachments: [...prev.attachments, ...files]
+        }));
+    };
+
+    const handleRemoveAttachment = (index) => {
+        setMessageDialog(prev => ({
+            ...prev,
+            attachments: prev.attachments.filter((_, i) => i !== index)
+        }));
+    };
+
     const handleSendMessage = async () => {
-        if (!messageDialog.text.trim()) return;
+        if (!messageDialog.text.trim() && messageDialog.attachments.length === 0) return;
 
         try {
-            const response = await axios.post('http://localhost:5000/api/messages', {
-                complaintId: messageDialog.complaintId,
-                name: user.name, // Sending agent's name
-                message: messageDialog.text
+            const formData = new FormData();
+            formData.append('complaintId', messageDialog.complaintId);
+            formData.append('name', user.name); // Sending agent's name
+            formData.append('message', messageDialog.text || ' '); // Send space if only attachment
+            
+            messageDialog.attachments.forEach(file => {
+                formData.append('attachments', file);
+            });
+
+            const response = await axios.post('http://localhost:5000/api/messages', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
 
             // Update local state instead of closing
             setMessageDialog(prev => ({ 
                 ...prev, 
                 text: '',
+                attachments: [],
                 messages: [...prev.messages, response.data]
             }));
         } catch (err) {
@@ -382,19 +405,36 @@ const AgentHome = ({ onNavigate }) => {
                                         <div><strong>State:</strong> {complaint.state}</div>
                                         <div><strong>Pincode:</strong> {complaint.pincode}</div>
                                         <div><strong>Comment:</strong> {complaint.comment}</div>
-                                        {complaint.attachment && (
-                                            <div style={{ marginTop: '0.5rem' }}>
-                                                <strong>Attachment:</strong>{' '}
-                                                <a 
-                                                    href={`http://localhost:5000/${complaint.attachment.replace(/\\/g, '/')}`} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    style={{ color: '#3498db', textDecoration: 'none' }}
-                                                >
-                                                    View Document
-                                                </a>
-                                            </div>
-                                        )}
+                                        {(complaint.attachments?.length > 0 || complaint.attachment) && (
+                                                <div style={{ marginTop: '0.5rem', borderTop: '1px dashed #eee', paddingTop: '0.5rem' }}>
+                                                    <strong>Attachments:</strong>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.3rem' }}>
+                                                        {/* Legacy Support */}
+                                                        {complaint.attachment && (!complaint.attachments || complaint.attachments.length === 0) && (
+                                                            <a 
+                                                                href={`http://localhost:5000/${complaint.attachment.replace(/\\/g, '/')}`} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                style={{ color: '#3498db', textDecoration: 'none', fontSize: '0.9rem' }}
+                                                            >
+                                                                View Document
+                                                            </a>
+                                                        )}
+                                                        {/* New Array Support */}
+                                                        {complaint.attachments?.map((att, idx) => (
+                                                            <a 
+                                                                key={idx}
+                                                                href={`http://localhost:5000/${att.path.replace(/\\/g, '/')}`} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                style={{ color: '#3498db', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}
+                                                            >
+                                                                <span>📄 {att.name || att.originalName || 'Document'}</span>
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         
                                         {/* Agent specific info (assignment status) */}
                                         <div style={{ marginTop: 'auto', paddingTop: '0.5rem', fontSize: '0.8rem', color: '#888', borderTop: '1px solid #eee' }}>
@@ -405,13 +445,16 @@ const AgentHome = ({ onNavigate }) => {
                                             <div style={{ marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #eee' }}>
                                                 <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#2c3e50', marginBottom: '0.2rem' }}>User Feedback:</div>
                                                 <Rating value={feedbacks[complaint._id].rating} readOnly size="small" />
-                                                <div style={{ fontSize: '0.8rem', color: '#666', fontStyle: 'italic' }}>"{feedbacks[complaint._id].comment}"</div>
+                                                {feedbacks[complaint._id].comment && feedbacks[complaint._id].comment.trim() && (
+                                                    <div style={{ fontSize: '0.8rem', color: '#666', fontStyle: 'italic' }}>"{feedbacks[complaint._id].comment}"</div>
+                                                )}
                                             </div>
                                         )}
 
                                         {/* Action Buttons */}
                                         <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
                                             {/* Status Change */}
+                                        {complaint.status !== 'Resolved' && (
                                             <div>
                                                 <div style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.3rem', color: '#34495e' }}>
                                                     Update Status:
@@ -424,9 +467,13 @@ const AgentHome = ({ onNavigate }) => {
                                                         fullWidth
                                                         style={{ backgroundColor: '#fff' }}
                                                     >
-                                                        <MenuItem value="Assigned">Assigned</MenuItem>
-                                                        <MenuItem value="In Progress">In Progress</MenuItem>
-                                                        <MenuItem value="Resolved">Resolved</MenuItem>
+                                                        <MenuItem value={complaint.status}>{complaint.status}</MenuItem>
+                                                        {complaint.status === 'Assigned' && (
+                                                            <MenuItem value="In Progress">In Progress</MenuItem>
+                                                        )}
+                                                        {complaint.status === 'In Progress' && (
+                                                            <MenuItem value="Resolved">Resolved</MenuItem>
+                                                        )}
                                                     </Select>
                                                     {statusUpdates[complaint._id] && statusUpdates[complaint._id] !== complaint.status && (
                                                         <Button 
@@ -440,15 +487,16 @@ const AgentHome = ({ onNavigate }) => {
                                                     )}
                                                 </div>
                                             </div>
+                                        )}
 
                                             {/* Message Button */}
                                             <Badge badgeContent={unreadCounts[complaint._id] || 0} color="error" style={{ width: '100%' }}>
                                                 <Button 
                                                     variant="outlined" 
                                                     color="secondary" 
-                                                    size="small"
+                                                    size="small" 
                                                     fullWidth
-                                                    onClick={() => setMessageDialog({ open: true, complaintId: complaint._id, text: '', messages: [] })}
+                                                    onClick={() => setMessageDialog({ open: true, complaintId: complaint._id, text: '', messages: [], attachments: [] })}
                                                 >
                                                     Message
                                                 </Button>
@@ -513,7 +561,54 @@ const AgentHome = ({ onNavigate }) => {
                                             <div style={{ fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.2rem', color: isMe ? '#e3f2fd' : '#7f8c8d' }}>
                                                 {msg.name}
                                             </div>
-                                            <div style={{ fontSize: '0.9rem' }}>{msg.message}</div>
+                                            <div style={{ fontSize: '0.9rem' }}>
+                                                {msg.message}
+                                                {msg.attachments && msg.attachments.length > 0 && (
+                                                    <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                        {msg.attachments.map((att, idx) => {
+                                                            const fileUrl = `http://localhost:5000/${att.path.replace(/\\/g, '/')}`;
+                                                            const isImage = att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                                                            
+                                                            return isImage ? (
+                                                                <a 
+                                                                    key={idx} 
+                                                                    href={fileUrl} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    style={{ display: 'block' }}
+                                                                >
+                                                                    <img 
+                                                                        src={fileUrl} 
+                                                                        alt={att.name} 
+                                                                        style={{ 
+                                                                            maxWidth: '200px', 
+                                                                            maxHeight: '200px', 
+                                                                            borderRadius: '8px', 
+                                                                            objectFit: 'cover',
+                                                                            border: '1px solid rgba(0,0,0,0.1)'
+                                                                        }} 
+                                                                    />
+                                                                </a>
+                                                            ) : (
+                                                                <a 
+                                                                    key={idx} 
+                                                                    href={fileUrl} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    style={{ 
+                                                                        color: isMe ? 'white' : '#3498db', 
+                                                                        textDecoration: 'underline', 
+                                                                        fontSize: '0.85rem',
+                                                                        display: 'block' 
+                                                                    }}
+                                                                >
+                                                                    {att.name || 'Attachment'}
+                                                                </a>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
                                             <div style={{ fontSize: '0.7rem', textAlign: 'right', marginTop: '0.2rem', opacity: 0.8 }}>
                                                 {new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </div>
@@ -539,23 +634,61 @@ const AgentHome = ({ onNavigate }) => {
                             </Fab>
                         )}
                     </div>
-                    <TextField
-                        autoFocus
-                        margin="dense"
-                        label="Type a message..."
-                        type="text"
-                        fullWidth
-                        multiline
-                        rows={2}
-                        value={messageDialog.text}
-                        onChange={(e) => setMessageDialog({ ...messageDialog, text: e.target.value })}
-                        onKeyPress={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSendMessage();
-                            }
-                        }}
-                    />
+                    
+                    {/* File Previews */}
+                    {messageDialog.attachments && messageDialog.attachments.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            {messageDialog.attachments.map((file, idx) => (
+                                <div key={idx} style={{ 
+                                    backgroundColor: '#f0f0f0', 
+                                    padding: '0.2rem 0.5rem', 
+                                    borderRadius: '4px', 
+                                    fontSize: '0.8rem', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '0.3rem' 
+                                }}>
+                                    <span>{file.name}</span>
+                                    <Close 
+                                        style={{ fontSize: '1rem', cursor: 'pointer', color: '#e74c3c' }} 
+                                        onClick={() => handleRemoveAttachment(idx)} 
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+                        <input
+                            type="file"
+                            multiple
+                            id="agent-chat-file-input"
+                            style={{ display: 'none' }}
+                            onChange={handleFileSelect}
+                        />
+                        <label htmlFor="agent-chat-file-input">
+                            <IconButton component="span" color="primary" size="small">
+                                <AttachFile />
+                            </IconButton>
+                        </label>
+                        <TextField
+                            autoFocus
+                            margin="dense"
+                            label="Type a message..."
+                            type="text"
+                            fullWidth
+                            multiline
+                            rows={2}
+                            value={messageDialog.text}
+                            onChange={(e) => setMessageDialog({ ...messageDialog, text: e.target.value })}
+                            onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSendMessage();
+                                }
+                            }}
+                        />
+                    </div>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setMessageDialog({ ...messageDialog, open: false })}>Close</Button>
