@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-const UserDropdown = ({ user, onUpdateDetails, onLogout }) => {
+const UserDropdown = ({ user, onLogout }) => {
+    const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
 
@@ -78,7 +80,7 @@ const UserDropdown = ({ user, onUpdateDetails, onLogout }) => {
                 }}>
                     <button 
                         onClick={() => {
-                            onUpdateDetails();
+                            navigate('/update-profile');
                             setIsOpen(false);
                         }}
                         style={{

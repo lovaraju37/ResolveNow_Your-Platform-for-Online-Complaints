@@ -16,8 +16,14 @@ const AgentInfo = ({ refreshTrigger }) => {
                 setLoading(false);
             } catch (err) {
                 console.error(err);
-                setError('Failed to fetch agents');
-                setLoading(false);
+                if (err.response && (err.response.status === 401 || err.response.status === 400)) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                } else {
+                    setError('Failed to fetch agents');
+                    setLoading(false);
+                }
             }
         };
 

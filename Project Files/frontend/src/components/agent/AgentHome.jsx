@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import { useNavigate } from 'react-router-dom';
 import { 
-    Dialog, DialogTitle, DialogContent, DialogActions, 
-    TextField, Button, Select, MenuItem, Snackbar, Alert, Rating, Badge, Fab, IconButton
+    Button, Select, MenuItem, Snackbar, Alert, Rating, Badge, IconButton
 } from '@mui/material';
-import { KeyboardArrowDown, AttachFile, Close } from '@mui/icons-material';
+import { AttachFile } from '@mui/icons-material';
 import AccordionAdmin from '../admin/AccordionAdmin';
-import Profile from '../common/Profile';
 import UserDropdown from '../common/UserDropdown';
+import FooterC from '../common/FooterC';
+import ChatWindow from '../common/ChatWindow';
 import '../common/Auth.css';
 
-const AgentHome = ({ onNavigate }) => {
-    const [user, setUser] = useState(() => {
+const AgentHome = () => {
+    const navigate = useNavigate();
+    const user = useState(() => {
         const storedUser = localStorage.getItem('user');
         return storedUser ? JSON.parse(storedUser) : null;
-    });
-    const [view, setView] = useState('dashboard'); // 'dashboard', 'profile'
+    })[0];
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -28,34 +29,24 @@ const AgentHome = ({ onNavigate }) => {
     const [feedbacks, setFeedbacks] = useState({});
     const [activeTab, setActiveTab] = useState('assigned'); // 'assigned', 'in_progress', 'resolved'
     const [unreadCounts, setUnreadCounts] = useState({});
-    const chatContainerRef = React.useRef(null);
-    const [showScrollButton, setShowScrollButton] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const [targetComplaintId, setTargetComplaintId] = useState(null);
+    const complaintRefs = React.useRef({});
+    const assignmentsRef = React.useRef(assignments);
+    const messageDialogRef = React.useRef(messageDialog);
 
-    const scrollToBottom = (behavior = 'auto') => {
-        if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTo({
-                top: chatContainerRef.current.scrollHeight,
-                behavior: behavior
-            });
-        }
-    };
-
-    const handleScroll = () => {
-        if (chatContainerRef.current) {
-            const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-            const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-            setShowScrollButton(!isNearBottom);
-        }
-    };
-
-    // Auto-scroll on new messages
+    // Update refs whenever state changes
     useEffect(() => {
-        if (messageDialog.open) {
-            setTimeout(() => scrollToBottom('smooth'), 100);
-        }
-    }, [messageDialog.messages, messageDialog.open]);
+        assignmentsRef.current = assignments;
+    }, [assignments]);
 
-    // Socket listener for real-time unread counts
+    useEffect(() => {
+        messageDialogRef.current = messageDialog;
+    }, [messageDialog]);
+
+    // Fetch assignments and unread counts
+
+    // Socket listener for real-time unread counts and notifications
     useEffect(() => {
         if (!user) return;
 
@@ -64,8 +55,16 @@ const AgentHome = ({ onNavigate }) => {
         socket.on('newMessage', (message) => {
             // If the message is NOT from me
             if (message.name !== user.name) {
-                // If chat for this complaint is NOT open, increment count
-                if (messageDialog.complaintId !== message.complaintId || !messageDialog.open) {
+                // Check if this message belongs to one of my assigned complaints
+                const isMyAssignment = assignmentsRef.current.some(a => a.complaintId?._id === message.complaintId);
+                if (!isMyAssignment) return;
+
+                // Add to notifications if chat is not open
+                const currentDialog = messageDialogRef.current;
+                if (currentDialog.complaintId !== message.complaintId || !currentDialog.open) {
+                    setNotifications(prev => [message, ...prev]);
+                    
+                    // Increment unread count
                     setUnreadCounts(prev => ({
                         ...prev,
                         [message.complaintId]: (prev[message.complaintId] || 0) + 1
@@ -86,7 +85,7 @@ const AgentHome = ({ onNavigate }) => {
         });
 
         return () => socket.disconnect();
-    }, [user, messageDialog.open, messageDialog.complaintId]);
+    }, [user.id, user.name]);
 
     // Fetch messages when dialog opens
     useEffect(() => {
@@ -110,7 +109,7 @@ const AgentHome = ({ onNavigate }) => {
                 if (err.response && (err.response.status === 401 || err.response.status === 400)) {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
-                    onNavigate('login');
+                    navigate('/login');
                 }
             }
         };
@@ -118,7 +117,30 @@ const AgentHome = ({ onNavigate }) => {
         if (messageDialog.open && messageDialog.complaintId) {
             fetchMessages(messageDialog.complaintId);
         }
-    }, [messageDialog.open, messageDialog.complaintId]);
+    }, [messageDialog.open, messageDialog.complaintId, navigate]);
+
+    // Scroll to target complaint effect
+    useEffect(() => {
+        if (targetComplaintId && !loading && assignments.length > 0) {
+            const element = complaintRefs.current[targetComplaintId];
+            if (element) {
+                // Small delay to ensure rendering
+                setTimeout(() => {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Highlight effect
+                    element.style.transition = 'all 0.5s ease';
+                    element.style.boxShadow = '0 0 0 2px #3498db, 0 4px 12px rgba(52, 152, 219, 0.3)';
+                    element.style.transform = 'scale(1.02)';
+                    
+                    setTimeout(() => {
+                        element.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
+                        element.style.transform = 'scale(1)';
+                        setTargetComplaintId(null); // Clear after highlighting
+                    }, 2000);
+                }, 100);
+            }
+        }
+    }, [targetComplaintId, loading, assignments]);
 
     useEffect(() => {
         const fetchAssignments = async () => {
@@ -129,7 +151,14 @@ const AgentHome = ({ onNavigate }) => {
                 const config = { headers: { Authorization: `Bearer ${token}` } };
                 // Using the updated endpoint that populates complaintId and its userId
                 const response = await axios.get(`http://localhost:5000/api/assigned/agent/${user.id}`, config);
-                setAssignments(response.data);
+                
+                // Sort assignments by complaint creation date (recent first)
+                const sortedAssignments = response.data.sort((a, b) => {
+                    const dateA = a.complaintId ? new Date(a.complaintId.createdAt) : 0;
+                    const dateB = b.complaintId ? new Date(b.complaintId.createdAt) : 0;
+                    return dateB - dateA;
+                });
+                setAssignments(sortedAssignments);
                 
                 // Fetch feedbacks for assignments
                 const feedbacksMap = {};
@@ -146,7 +175,7 @@ const AgentHome = ({ onNavigate }) => {
                             if (err.response && (err.response.status === 401 || err.response.status === 400)) {
                                 localStorage.removeItem('token');
                                 localStorage.removeItem('user');
-                                onNavigate('login');
+                                navigate('/login');
                                 return;
                             }
                         }
@@ -160,7 +189,7 @@ const AgentHome = ({ onNavigate }) => {
                 if (err.response && (err.response.status === 401 || err.response.status === 400)) {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
-                    onNavigate('login');
+                    navigate('/login');
                     return;
                 }
                 setError('Failed to fetch assignments');
@@ -169,7 +198,7 @@ const AgentHome = ({ onNavigate }) => {
         };
 
         fetchAssignments();
-    }, [user]);
+    }, [user, navigate]);
 
     // Fetch unread counts on mount
     useEffect(() => {
@@ -186,21 +215,17 @@ const AgentHome = ({ onNavigate }) => {
                 if (err.response && (err.response.status === 401 || err.response.status === 400)) {
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
-                    onNavigate('login');
+                    navigate('/login');
                 }
             }
         };
         fetchUnreadCounts();
-    }, [user]);
-
-    const handleUserUpdate = (updatedUser) => {
-        setUser(updatedUser);
-    };
+    }, [user, navigate]);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        onNavigate('login');
+        navigate('/login');
     };
 
     const handleStatusChange = async (complaintId, newStatus) => {
@@ -272,8 +297,8 @@ const AgentHome = ({ onNavigate }) => {
         }
     };
 
-    if (loading && !assignments.length && view === 'dashboard') {
-        return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
+    if (loading && !assignments.length) {
+        return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading assignments...</div>;
     }
 
     const filteredAssignments = assignments.filter(assignment => {
@@ -288,24 +313,74 @@ const AgentHome = ({ onNavigate }) => {
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#f0f2f5' }}>
             {/* Navbar */}
             <nav className="auth-navbar" style={{ padding: '0 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div className="navbar-brand" style={{ cursor: 'pointer', fontSize: '1.5rem', fontWeight: 'bold' }} onClick={() => setView('dashboard')}>
+                <div className="navbar-brand" style={{ cursor: 'pointer', fontSize: '1.5rem', fontWeight: 'bold' }} onClick={() => navigate('/')}>
                     ResolveNow
                 </div>
                 <UserDropdown 
                     user={user} 
-                    onUpdateDetails={() => setView('profile')} 
                     onLogout={handleLogout} 
                 />
             </nav>
 
             {/* Main Content */}
             <div style={{ flex: 1, padding: '2rem', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-                {view === 'dashboard' ? (
-                    <AccordionAdmin title="Assigned Complaints" defaultOpen={true}>
-                        {error && <div className="error-message">{error}</div>}
-                        
-                        {/* Tabs */}
-                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #ddd', paddingBottom: '0.5rem' }}>
+                <AccordionAdmin title="Assigned Complaints" defaultOpen={true}>
+                    {error && <div className="error-message">{error}</div>}
+                    
+                    {/* Notifications */}
+                    {notifications.length > 0 && (
+                        <div style={{ marginBottom: '2rem' }}>
+                            {notifications.map((msg, index) => (
+                                <div 
+                                    key={index} 
+                                    onClick={() => {
+                                        setTargetComplaintId(msg.complaintId);
+                                        setMessageDialog({ open: true, complaintId: msg.complaintId, text: '', messages: [], attachments: [] });
+                                        // Find complaint status to switch tab if needed
+                                        const complaint = assignments.find(a => a.complaintId?._id === msg.complaintId)?.complaintId;
+                                        if (complaint) {
+                                            if (complaint.status === 'Assigned') setActiveTab('assigned');
+                                            else if (complaint.status === 'In Progress') setActiveTab('in_progress');
+                                            else if (complaint.status === 'Resolved') setActiveTab('resolved');
+                                        }
+                                        // Remove notification
+                                        setNotifications(prev => prev.filter((_, i) => i !== index));
+                                    }}
+                                    style={{
+                                        backgroundColor: '#e3f2fd',
+                                        border: '1px solid #90caf9',
+                                        borderRadius: '8px',
+                                        padding: '1rem',
+                                        marginBottom: '1rem',
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                                        transition: 'background-color 0.2s'
+                                    }}
+                                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#bbdefb'}
+                                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#e3f2fd'}
+                                >
+                                    <div>
+                                        <div style={{ fontWeight: 'bold', color: '#1565c0', marginBottom: '0.2rem' }}>
+                                            New message from {msg.name}
+                                        </div>
+                                        <div style={{ color: '#555', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '600px' }}>
+                                            {msg.message}
+                                        </div>
+                                    </div>
+                                    <div style={{ color: '#1976d2', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                        View →
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    
+                    {/* Tabs */}
+                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #ddd', paddingBottom: '0.5rem' }}>
                             <button 
                                 onClick={() => setActiveTab('assigned')}
                                 style={{
@@ -361,17 +436,21 @@ const AgentHome = ({ onNavigate }) => {
                                     if (!complaint) return null;
 
                                     return (
-                                        <div key={assignment._id} style={{ 
-                                            backgroundColor: 'white', 
-                                            padding: '1rem', 
-                                            borderRadius: '8px', 
-                                            boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-                                            width: '300px', // Fixed width like a book
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '0.5rem',
-                                            border: '1px solid #e0e0e0'
-                                        }}>
+                                        <div 
+                                            key={assignment._id} 
+                                            ref={el => complaintRefs.current[complaint._id] = el}
+                                            style={{ 
+                                                backgroundColor: 'white', 
+                                                padding: '1rem', 
+                                                borderRadius: '8px', 
+                                                boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                                                width: '300px', // Fixed width like a book
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '0.5rem',
+                                                border: '1px solid #e0e0e0'
+                                            }}
+                                        >
                                             {/* Card Header */}
                                             <div style={{ 
                                                 borderBottom: '1px solid #eee', 
@@ -508,193 +587,22 @@ const AgentHome = ({ onNavigate }) => {
                         </div>
                     )}
                 </AccordionAdmin>
-            ) : (
-                <Profile onUpdate={handleUserUpdate} />
-            )}
             </div>
 
             {/* Message Dialog */}
-            <Dialog 
-                open={messageDialog.open} 
+            <ChatWindow 
+                open={messageDialog.open}
                 onClose={() => setMessageDialog({ ...messageDialog, open: false })}
-                maxWidth="sm"
-                fullWidth
-            >
-                <DialogTitle>Chat with User</DialogTitle>
-                <DialogContent>
-                    <div style={{ position: 'relative' }}>
-                        <div 
-                            ref={chatContainerRef}
-                            onScroll={handleScroll}
-                            style={{ 
-                                height: '300px', 
-                                overflowY: 'auto', 
-                                marginBottom: '1rem', 
-                                padding: '1rem', 
-                                border: '1px solid #e0e0e0', 
-                                borderRadius: '4px',
-                                backgroundColor: '#f9f9f9',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '0.5rem'
-                            }}
-                        >
-                            {!messageDialog.messages || messageDialog.messages.length === 0 ? (
-                                <div style={{ textAlign: 'center', color: '#999', marginTop: 'auto', marginBottom: 'auto' }}>
-                                    No messages yet. Start the conversation!
-                                </div>
-                            ) : (
-                                messageDialog.messages.map((msg, index) => {
-                                    const isMe = msg.name === user.name;
-                                    return (
-                                        <div key={index} style={{
-                                            alignSelf: isMe ? 'flex-end' : 'flex-start',
-                                            maxWidth: '70%',
-                                            backgroundColor: isMe ? '#3498db' : '#ecf0f1',
-                                            color: isMe ? 'white' : '#2c3e50',
-                                            padding: '0.5rem 0.8rem',
-                                            borderRadius: '10px',
-                                            borderBottomRightRadius: isMe ? '0' : '10px',
-                                            borderBottomLeftRadius: isMe ? '10px' : '0',
-                                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                        }}>
-                                            <div style={{ fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.2rem', color: isMe ? '#e3f2fd' : '#7f8c8d' }}>
-                                                {msg.name}
-                                            </div>
-                                            <div style={{ fontSize: '0.9rem' }}>
-                                                {msg.message}
-                                                {msg.attachments && msg.attachments.length > 0 && (
-                                                    <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                                        {msg.attachments.map((att, idx) => {
-                                                            const fileUrl = `http://localhost:5000/${att.path.replace(/\\/g, '/')}`;
-                                                            const isImage = att.name.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-                                                            
-                                                            return isImage ? (
-                                                                <a 
-                                                                    key={idx} 
-                                                                    href={fileUrl} 
-                                                                    target="_blank" 
-                                                                    rel="noopener noreferrer"
-                                                                    style={{ display: 'block' }}
-                                                                >
-                                                                    <img 
-                                                                        src={fileUrl} 
-                                                                        alt={att.name} 
-                                                                        style={{ 
-                                                                            maxWidth: '200px', 
-                                                                            maxHeight: '200px', 
-                                                                            borderRadius: '8px', 
-                                                                            objectFit: 'cover',
-                                                                            border: '1px solid rgba(0,0,0,0.1)'
-                                                                        }} 
-                                                                    />
-                                                                </a>
-                                                            ) : (
-                                                                <a 
-                                                                    key={idx} 
-                                                                    href={fileUrl} 
-                                                                    target="_blank" 
-                                                                    rel="noopener noreferrer"
-                                                                    style={{ 
-                                                                        color: isMe ? 'white' : '#3498db', 
-                                                                        textDecoration: 'underline', 
-                                                                        fontSize: '0.85rem',
-                                                                        display: 'block' 
-                                                                    }}
-                                                                >
-                                                                    {att.name || 'Attachment'}
-                                                                </a>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div style={{ fontSize: '0.7rem', textAlign: 'right', marginTop: '0.2rem', opacity: 0.8 }}>
-                                                {new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                        {showScrollButton && (
-                            <Fab 
-                                color="primary" 
-                                size="small" 
-                                onClick={() => scrollToBottom('smooth')}
-                                style={{
-                                    position: 'absolute',
-                                    bottom: '20px',
-                                    right: '20px',
-                                    zIndex: 10,
-                                    backgroundColor: '#3498db'
-                                }}
-                            >
-                                <KeyboardArrowDown />
-                            </Fab>
-                        )}
-                    </div>
-                    
-                    {/* File Previews */}
-                    {messageDialog.attachments && messageDialog.attachments.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                            {messageDialog.attachments.map((file, idx) => (
-                                <div key={idx} style={{ 
-                                    backgroundColor: '#f0f0f0', 
-                                    padding: '0.2rem 0.5rem', 
-                                    borderRadius: '4px', 
-                                    fontSize: '0.8rem', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    gap: '0.3rem' 
-                                }}>
-                                    <span>{file.name}</span>
-                                    <Close 
-                                        style={{ fontSize: '1rem', cursor: 'pointer', color: '#e74c3c' }} 
-                                        onClick={() => handleRemoveAttachment(idx)} 
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
-                        <input
-                            type="file"
-                            multiple
-                            id="agent-chat-file-input"
-                            style={{ display: 'none' }}
-                            onChange={handleFileSelect}
-                        />
-                        <label htmlFor="agent-chat-file-input">
-                            <IconButton component="span" color="primary" size="small">
-                                <AttachFile />
-                            </IconButton>
-                        </label>
-                        <TextField
-                            autoFocus
-                            margin="dense"
-                            label="Type a message..."
-                            type="text"
-                            fullWidth
-                            multiline
-                            rows={2}
-                            value={messageDialog.text}
-                            onChange={(e) => setMessageDialog({ ...messageDialog, text: e.target.value })}
-                            onKeyPress={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSendMessage();
-                                }
-                            }}
-                        />
-                    </div>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setMessageDialog({ ...messageDialog, open: false })}>Close</Button>
-                    <Button onClick={handleSendMessage} variant="contained" color="primary">Send</Button>
-                </DialogActions>
-            </Dialog>
+                title="Chat with User"
+                messages={messageDialog.messages}
+                onSendMessage={handleSendMessage}
+                onFileSelect={handleFileSelect}
+                onRemoveAttachment={handleRemoveAttachment}
+                attachments={messageDialog.attachments}
+                inputText={messageDialog.text}
+                onInputChange={(val) => setMessageDialog({ ...messageDialog, text: val })}
+                currentUser={user}
+            />
 
             {/* Snackbar */}
             <Snackbar 
@@ -708,10 +616,7 @@ const AgentHome = ({ onNavigate }) => {
                 </Alert>
             </Snackbar>
 
-            {/* Footer */}
-            <footer style={{ backgroundColor: '#2c3e50', padding: '1rem', textAlign: 'center', color: 'white' }}>
-                ResolveNow
-            </footer>
+            <FooterC />
         </div>
     );
 };

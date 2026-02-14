@@ -38,14 +38,20 @@ const UserInfo = ({ onAssignmentChange }) => {
                     axios.get('http://localhost:5000/api/assigned', config)
                 ]);
 
-                setComplaints(complaintsRes.data);
+                setComplaints(complaintsRes.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
                 setAgents(agentsRes.data);
                 setAssignments(assignmentsRes.data);
                 setLoading(false);
             } catch (err) {
                 console.error(err);
-                setError('Failed to fetch data');
-                setLoading(false);
+                if (err.response && (err.response.status === 401 || err.response.status === 400)) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                } else {
+                    setError('Failed to fetch data');
+                    setLoading(false);
+                }
             }
         };
 

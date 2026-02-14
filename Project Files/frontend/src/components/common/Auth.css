@@ -6,48 +6,9 @@
   flex-direction: column;
 }
 
-/* Auth Navbar */
+/* Auth Navbar Overrides */
 .auth-navbar {
-  background-color: #2c3e50;
-  padding: 1rem 0;
-}
-
-.auth-navbar .navbar-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.auth-navbar .navbar-brand {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #ffffff;
-  cursor: pointer;
-  transition: color 0.3s ease;
-}
-
-.auth-navbar .navbar-brand:hover {
-  color: #3498db;
-}
-
-.auth-navbar .navbar-links {
-  display: flex;
-  gap: 2rem;
-}
-
-.auth-navbar .nav-link {
-  color: #ffffff;
-  text-decoration: none;
-  font-size: 1rem;
-  transition: color 0.3s ease;
-  cursor: pointer;
-}
-
-.auth-navbar .nav-link:hover {
-  color: #3498db;
+  padding: 0.8rem 0;
 }
 
 /* Auth Content */
@@ -259,14 +220,6 @@
   .auth-title {
     font-size: 1.3rem;
   }
-
-  .auth-navbar .navbar-container {
-    padding: 0 1rem;
-  }
-
-  .auth-navbar .navbar-links {
-    gap: 1rem;
-  }
 }
 
 @media (max-width: 480px) {
@@ -276,17 +229,5 @@
 
   .auth-card {
     padding: 1.5rem;
-  }
-
-  .auth-navbar .navbar-brand {
-    font-size: 1.2rem;
-  }
-
-  .auth-navbar .navbar-links {
-    gap: 0.5rem;
-  }
-
-  .auth-navbar .nav-link {
-    font-size: 0.9rem;
   }
 }

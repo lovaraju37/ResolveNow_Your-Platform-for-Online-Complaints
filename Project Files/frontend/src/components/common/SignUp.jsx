@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useNavigate, useLocation } from 'react-router-dom';
+import FooterC from './FooterC';
 import './Auth.css';
 
-const SignUp = ({ onNavigate }) => {
+const SignUp = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const isActive = (path) => {
+    return location.pathname === path;
+  };
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -58,11 +66,11 @@ const SignUp = ({ onNavigate }) => {
       setTimeout(() => {
         // Navigate based on user type
         if (user.userType === 'Customer') {
-          onNavigate('customer-home');
+          navigate('/customer-home');
         } else if (user.userType === 'Agent') {
-          onNavigate('agent-home');
+          navigate('/agent-home');
         } else if (user.userType === 'Admin') {
-          onNavigate('admin-home');
+          navigate('/admin-home');
         }
       }, 1000);
     } catch (err) {
@@ -73,19 +81,19 @@ const SignUp = ({ onNavigate }) => {
   };
 
   return (
-    <div className="auth-container">
-      <nav className="auth-navbar">
+    <div className="auth-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <nav className="navbar">
         <div className="navbar-container">
-          <div className="navbar-brand" onClick={() => onNavigate('home')}>ResolveNow</div>
+          <div className="navbar-brand" onClick={() => navigate('/')}>ResolveNow</div>
           <div className="navbar-links">
-            <a href="#home" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('home'); }}>Home</a>
-            <a href="#signup" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('signup'); }}>SignUp</a>
-            <a href="#login" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('login'); }}>LogIn</a>
+            <span className={`nav-link ${isActive('/') ? 'active' : ''}`} onClick={() => navigate('/')}>Home</span>
+            <span className={`nav-link ${isActive('/signup') ? 'active' : ''}`} onClick={() => navigate('/signup')}>SignUp</span>
+            <span className={`nav-link ${isActive('/login') ? 'active' : ''}`} onClick={() => navigate('/login')}>LogIn</span>
           </div>
         </div>
       </nav>
 
-      <div className="auth-content">
+      <div className="auth-content" style={{ flex: 1 }}>
         <div className="auth-card signup-card">
           <h2 className="auth-title">SignUp For Registering the Complaint</h2>
           <p className="auth-subtitle">Please enter your details</p>
@@ -119,7 +127,7 @@ const SignUp = ({ onNavigate }) => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="phone">Phone</label>
+              <label htmlFor="phone">Phone Number</label>
               <input
                 type="tel"
                 id="phone"
@@ -131,13 +139,12 @@ const SignUp = ({ onNavigate }) => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="userType">User Type</label>
+              <label htmlFor="userType">Register As</label>
               <select
                 id="userType"
                 name="userType"
                 value={formData.userType}
                 onChange={handleChange}
-                required
               >
                 <option value="Customer">Customer</option>
                 <option value="Agent">Agent</option>
@@ -176,10 +183,11 @@ const SignUp = ({ onNavigate }) => {
           </form>
 
           <div className="auth-footer">
-            <p>Already have an account? <a href="#login" onClick={(e) => { e.preventDefault(); onNavigate('login'); }}>LogIn</a></p>
+            <p>Already have an account? <a href="/login" onClick={(e) => { e.preventDefault(); navigate('/login'); }}>LogIn</a></p>
           </div>
         </div>
       </div>
+      <FooterC />
     </div>
   );
 };

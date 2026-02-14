@@ -1,23 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import { useNavigate } from 'react-router-dom';
 import Complaint from './Complaint';
 import Status from './Status';
-import Profile from '../common/Profile';
 import UserDropdown from '../common/UserDropdown';
+import FooterC from '../common/FooterC';
 import '../common/Auth.css';
 
-const HomePage = ({ onNavigate }) => {
-  const [user, setUser] = useState(() => {
+const HomePage = () => {
+  const navigate = useNavigate();
+  const [user] = useState(() => {
     const storedUser = localStorage.getItem('user');
     return storedUser ? JSON.parse(storedUser) : null;
   });
-  const [activeTab, setActiveTab] = useState('register'); // 'register', 'status', 'profile'
+  const [activeTab, setActiveTab] = useState('register'); // 'register', 'status'
   const [showForm, setShowForm] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [targetComplaintId, setTargetComplaintId] = useState(null);
   const [userComplaintIds, setUserComplaintIds] = useState(new Set());
   const [userComplaints, setUserComplaints] = useState([]);
+  const userComplaintIdsRef = React.useRef(new Set());
+
+  // Update ref whenever userComplaintIds changes
+  useEffect(() => {
+    userComplaintIdsRef.current = userComplaintIds;
+  }, [userComplaintIds]);
 
   // Fetch user complaints to know which IDs to listen for
   useEffect(() => {
@@ -41,41 +49,39 @@ const HomePage = ({ onNavigate }) => {
             if (err.response && (err.response.status === 401 || err.response.status === 400)) {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
-                onNavigate('login');
+                navigate('/login');
             }
         }
     };
     if (user) fetchUserComplaints();
-  }, [user]);
+  }, [user.id, navigate]);
 
   // Socket listener
   useEffect(() => {
+    if (!user) return;
+
     const socket = io('http://localhost:5000');
     
     socket.on('newMessage', (message) => {
         // Check if message belongs to one of user's complaints and is NOT from user
-        if (userComplaintIds.has(message.complaintId) && message.name !== user.name) {
+        if (userComplaintIdsRef.current.has(message.complaintId) && message.name !== user.name) {
             setNotifications(prev => [message, ...prev]);
         }
     });
 
     return () => socket.disconnect();
-  }, [user, userComplaintIds]);
+  }, [user.id, user.name]);
 
   useEffect(() => {
     if (!user) {
-      onNavigate('login');
+      navigate('/login');
     }
-  }, [user, onNavigate]);
-
-  const handleUserUpdate = (updatedUser) => {
-      setUser(updatedUser);
-  };
+  }, [user, navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    onNavigate('home');
+    navigate('/');
   };
 
   if (!user) return null;
@@ -89,8 +95,7 @@ const HomePage = ({ onNavigate }) => {
                     className="navbar-brand" 
                     style={{ cursor: 'pointer', fontSize: '1.5rem', fontWeight: 'bold' }}
                     onClick={() => {
-                        setActiveTab('register');
-                        setShowForm(false);
+                        navigate('/');
                     }}
                 >
                     ResolveNow
@@ -133,7 +138,6 @@ const HomePage = ({ onNavigate }) => {
 
             <UserDropdown 
                 user={user} 
-                onUpdateDetails={() => setActiveTab('profile')} 
                 onLogout={handleLogout} 
             />
         </nav>
@@ -260,14 +264,6 @@ const HomePage = ({ onNavigate }) => {
                                                 </div>
                                             </div>
                                         ))}
-                                        {userComplaints.length > 3 && (
-                                            <div 
-                                                style={{ textAlign: 'center', marginTop: '1rem', color: '#3498db', cursor: 'pointer', fontWeight: '500' }}
-                                                onClick={() => setActiveTab('status')}
-                                            >
-                                                View All Complaints →
-                                            </div>
-                                        )}
                                     </div>
                                 )}
                             </div>
@@ -298,17 +294,12 @@ const HomePage = ({ onNavigate }) => {
                         </div>
                     )}
                 </div>
-            ) : activeTab === 'status' ? (
-                <Status user={user} targetComplaintId={targetComplaintId} onNavigate={onNavigate} />
             ) : (
-                <Profile onUpdate={handleUserUpdate} />
+                <Status user={user} targetComplaintId={targetComplaintId} />
             )}
         </div>
 
-        {/* Footer */}
-        <footer style={{ backgroundColor: '#2c3e50', padding: '1rem', textAlign: 'center', color: 'white' }}>
-            ResolveNow
-        </footer>
+        <FooterC />
     </div>
   );
 };

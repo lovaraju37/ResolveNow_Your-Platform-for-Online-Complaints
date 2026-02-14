@@ -1,17 +1,73 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import FooterC from './FooterC';
 import './Home.css';
 
-const Home = ({ onNavigate }) => {
+const Home = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const user = (() => {
+    const storedUser = localStorage.getItem('user');
+    try {
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const getHomeLink = () => {
+    if (!user) return '/';
+    if (user.userType === 'Customer') return '/customer-home';
+    if (user.userType === 'Agent') return '/agent-home';
+    if (user.userType === 'Admin') return '/admin-home';
+    return '/';
+  };
+
+  const isActive = (path) => {
+    return location.pathname === path;
+  };
+
   return (
     <div className="landing-page">
       {/* Navigation Bar */}
       <nav className="navbar">
         <div className="navbar-container">
-          <div className="navbar-brand">ResolveNow</div>
+          <div className="navbar-brand" style={{ cursor: 'pointer' }} onClick={() => navigate(getHomeLink())}>ResolveNow</div>
           <div className="navbar-links">
-            <a href="#home" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('home'); }}>Home</a>
-            <a href="#signup" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('signup'); }}>SignUp</a>
-            <a href="#login" className="nav-link" onClick={(e) => { e.preventDefault(); onNavigate('login'); }}>Login</a>
+            <span 
+              className={`nav-link ${isActive('/') || isActive('/customer-home') || isActive('/agent-home') || isActive('/admin-home') ? 'active' : ''}`} 
+              style={{ cursor: 'pointer' }} 
+              onClick={() => navigate(getHomeLink())}
+            >
+              Home
+            </span>
+            {user ? (
+              <span 
+                className={`nav-link ${isActive('/update-profile') ? 'active' : ''}`} 
+                style={{ cursor: 'pointer' }} 
+                onClick={() => navigate('/update-profile')}
+              >
+                Profile
+              </span>
+            ) : (
+              <>
+                <span 
+                  className={`nav-link ${isActive('/signup') ? 'active' : ''}`} 
+                  style={{ cursor: 'pointer' }} 
+                  onClick={() => navigate('/signup')}
+                >
+                  SignUp
+                </span>
+                <span 
+                  className={`nav-link ${isActive('/login') ? 'active' : ''}`} 
+                  style={{ cursor: 'pointer' }} 
+                  onClick={() => navigate('/login')}
+                >
+                  Login
+                </span>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -44,13 +100,14 @@ const Home = ({ onNavigate }) => {
             </p>
             <button 
               className="cta-button"
-              onClick={() => onNavigate('signup')}
+              onClick={() => navigate(user ? getHomeLink() : '/signup')}
             >
-              Register your Complaint
+              {user ? 'Go to Dashboard' : 'Register your Complaint'}
             </button>
           </div>
         </div>
       </section>
+      <FooterC />
     </div>
   );
 };

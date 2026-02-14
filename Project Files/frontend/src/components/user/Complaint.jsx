@@ -303,13 +303,16 @@ const Complaint = ({ user, onSuccess }) => {
                 onClick={handleAddAttachment}
                 style={{
                     padding: '0.6rem 1.2rem',
-                    backgroundColor: '#95a5a6',
+                    backgroundColor: '#3498db',
                     color: 'white',
                     border: 'none',
                     borderRadius: '6px',
                     cursor: 'pointer',
-                    fontSize: '0.9rem'
+                    fontSize: '0.9rem',
+                    transition: 'background-color 0.2s'
                 }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#2980b9'}
+                onMouseOut={(e) => e.target.style.backgroundColor = '#3498db'}
             >
                 + Add Attachment
             </button>
