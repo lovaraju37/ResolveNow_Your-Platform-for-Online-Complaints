@@ -176,26 +176,26 @@ Auth header (where required): Authorization: Bearer <token>
 Replace placeholders with your images (recommended: `screenshots/` at repo root or `Project Files/frontend/public/screenshots/`).
 
 - Landing Page  
-  ![Landing](https://github.com/user-attachments/assets/7939aa36-4f5c-4138-9728-d04b3b7f714d)
+    ![Landing](https://github.com/user-attachments/assets/7939aa36-4f5c-4138-9728-d04b3b7f714d)
   
 - Registration  
-  ![Registration](https://github.com/user-attachments/assets/b240a6b1-e909-4cfb-8b6a-ab2cf0291d20)
+    ![Registration](https://github.com/user-attachments/assets/b240a6b1-e909-4cfb-8b6a-ab2cf0291d20)
   
 - Login  
-  ![Login](https://github.com/user-attachments/assets/ad5dbbb6-926f-4f9a-a8fc-f699ec3c34d9)
+    ![Login](https://github.com/user-attachments/assets/ad5dbbb6-926f-4f9a-a8fc-f699ec3c34d9)
   
 - Submit Complaint  
- <img width="1902" height="866" alt="image" src="https://github.com/user-attachments/assets/1fa71ba7-e835-4053-83c0-ebbc8d2f26b1" />
+   <img width="1902" height="866" alt="image" src="https://github.com/user-attachments/assets/1fa71ba7-e835-4053-83c0-ebbc8d2f26b1" />
  
 - My Complaints  
- <img width="1915" height="845" alt="image" src="https://github.com/user-attachments/assets/d2a3527e-1aa4-4001-ae6f-838592e2f7c2" />
+   <img width="1915" height="845" alt="image" src="https://github.com/user-attachments/assets/d2a3527e-1aa4-4001-ae6f-838592e2f7c2" />
 
 - Chat With Agent  
-  ![Chat With Agent](./screenshots/chat-with-agent.png)
+    <img width="1919" height="826" alt="image" src="https://github.com/user-attachments/assets/3f1b2d38-c1be-4ef7-bf7f-2bcfdd3d333e" />
   
 - Admin Dashboard  
-  ![Admin Dashboard](https://github.com/user-attachments/assets/b5edb65e-5f30-4089-8905-b76fa8f883f3)
+    ![Admin Dashboard](https://github.com/user-attachments/assets/b5edb65e-5f30-4089-8905-b76fa8f883f3)
   
 - Agent Dashboard  
-  ![Agent Dashboard](https://github.com/user-attachments/assets/b9d45c5c-64f3-4931-af1e-3e28008ad5e7)
+    ![Agent Dashboard](https://github.com/user-attachments/assets/b9d45c5c-64f3-4931-af1e-3e28008ad5e7)
 
