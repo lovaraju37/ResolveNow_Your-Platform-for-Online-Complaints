@@ -323,16 +323,16 @@ On completing the development part, we then run the application one last time to
 
 
 ### 2. Login Page
-![Login Page](Project%20Files/backend/uploads/login-page.png)
+<img width="1918" height="867" alt="image" src="https://github.com/user-attachments/assets/ad5dbbb6-926f-4f9a-a8fc-f699ec3c34d9" />
 
 ### 3. Registration Page
-![Registration Page](Project%20Files/backend/uploads/registration-page.png)
+<img width="1905" height="869" alt="image" src="https://github.com/user-attachments/assets/b240a6b1-e909-4cfb-8b6a-ab2cf0291d20" />
 
-### 4. Common Dashboard For Complaint
-![Common Dashboard](Project%20Files/backend/uploads/common-dashboard.png)
+### 4. Customer Dashboard For Complaint
+<img width="1900" height="876" alt="image" src="https://github.com/user-attachments/assets/f061f6c6-a795-4e34-b831-bf0e60d9bdfe" />
 
 ### 5. Admin Dashboard
-![Admin Dashboard](Project%20Files/backend/uploads/admin-dashboard.png)
+<img width="1898" height="869" alt="image" src="https://github.com/user-attachments/assets/b5edb65e-5f30-4089-8905-b76fa8f883f3" />
 
 ### 6. Agent Dashboard
-![Agent Dashboard](Project%20Files/backend/uploads/agent-dashboard.png)
+<img width="1898" height="873" alt="image" src="https://github.com/user-attachments/assets/b9d45c5c-64f3-4931-af1e-3e28008ad5e7" />
