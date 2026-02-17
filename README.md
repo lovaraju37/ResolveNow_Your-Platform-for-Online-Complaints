@@ -173,7 +173,7 @@ Auth header (where required): Authorization: Bearer <token>
 - Customer submits a complaint → Admin assigns to an agent → Agent updates status → Customer chats and gives feedback.
 
 ## Screenshots
-Replace placeholders with your images (recommended: `screenshots/` at repo root or `Project Files/frontend/public/screenshots/`).
+
 
 - Landing Page  
     ![Landing](https://github.com/user-attachments/assets/7939aa36-4f5c-4138-9728-d04b3b7f714d)
