@@ -48,11 +48,9 @@ The project is organized into two main directories: `backend` and `frontend`, lo
 
 ### Backend (`Project Files/backend`)
 - **config.js**: Configuration for database connection and environment variables.
-- **models/**: Mongoose schemas and models (User, Complaint, Assigned, Message, Feedback).
-- **routes/**: API route definitions for authentication, complaints, and real-time messaging.
-- **middleware/**: Custom middleware for authentication and centralized error handling.
+- **Schema.js**: All Mongoose schemas and models (User, Complaint, Assigned, Message, Feedback) in one file.
+- **index.js**: Express server entry; contains all routes, auth/error middleware, and Socket.io setup.
 - **uploads/**: Storage for complaint attachments and chat images.
-- **index.js**: The entry point for the Express server.
 
 ### Frontend (`Project Files/frontend`)
 - **src/**:
