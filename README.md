@@ -11,6 +11,7 @@
 - Admin assigns to agents; agents update status.
 - Secure auth with JWT; real‑time via Socket.io.
 
+Video Demonstration: https://drive.google.com/file/d/1p5c-PC-0FMArPICd3jW-aX50T-9C6uJ9/view?usp=sharing
 ## Features
 - Customer: submit, track, chat, give feedback.
 - Agent: view assigned items, chat, update status.
